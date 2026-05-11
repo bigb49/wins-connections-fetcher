@@ -4,7 +4,7 @@ on:
   schedule:
     # Every 30 minutes — stays inside GitHub's 2000 min/month free tier on private repos.
     # Shorter intervals are fine on public repos (Actions are unlimited there).
-    - cron: '30 */1 * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:   # Lets you trigger a run manually from the Actions tab.
 
 concurrency:
