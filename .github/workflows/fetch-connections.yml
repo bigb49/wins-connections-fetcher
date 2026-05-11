@@ -36,7 +36,7 @@ jobs:
 
       - name: Upload to Namecheap via FTPS
         env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_HOST: ftp.insomniac-group.com
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
           FTP_PATH: wins-data/connections.txt   # path relative to FTP login home
