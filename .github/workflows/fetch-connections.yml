@@ -39,7 +39,7 @@ jobs:
           FTP_HOST: ftp.insomniac-group.com
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
-          FTP_PATH: wins-data/connections.txt   # path relative to FTP login home
+          FTP_PATH: logs/connections.txt   # path relative to FTP login home
         run: |
           curl --fail --silent --show-error --max-time 60 --ssl-reqd --insecure --user "$FTP_USER:$FTP_PASS" --upload-file connections.txt "ftp://$FTP_HOST/$FTP_PATH"
           echo "Uploaded to ftp://$FTP_HOST/$FTP_PATH"
