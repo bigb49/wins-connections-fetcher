@@ -1,0 +1,51 @@
+name: Fetch WIN System connection log
+
+on:
+  schedule:
+    # Every 15 minutes. Adjust if you want fresher data and have Actions minutes.
+    - cron: '15 */1 * * *' 
+  workflow_dispatch:   # Lets you trigger a run manually from the Actions tab.
+
+concurrency:
+  group: fetch-connections
+  cancel-in-progress: false
+
+jobs:
+  fetch-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Fetch log via HTTPS (Basic auth)
+        env:
+          URL_USER: ${{ secrets.URL_USER }}
+          URL_PASS: ${{ secrets.URL_PASS }}
+          LOG_URL:  ${{ secrets.LOG_URL }}
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            --user "$URL_USER:$URL_PASS" \
+            --output connections.txt \
+            "$LOG_URL"
+          lines=$(wc -l < connections.txt)
+          bytes=$(wc -c < connections.txt)
+          echo "Fetched $lines lines / $bytes bytes"
+          # Guard against silently writing an empty/HTML error page.
+          if [ "$bytes" -lt 100 ]; then
+            echo "Suspiciously small payload — aborting upload."
+            head -c 500 connections.txt
+            exit 1
+          fi
+
+      - name: Upload to Namecheap via FTPS
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_PATH: wins-data/connections.txt   # path relative to FTP login home
+        run: |
+          curl --fail --silent --show-error --max-time 60 \
+            --ssl-reqd \
+            --user "$FTP_USER:$FTP_PASS" \
+            --upload-file connections.txt \
+            "ftp://$FTP_HOST/$FTP_PATH"
+          echo "Uploaded to ftp://$FTP_HOST/$FTP_PATH"
