@@ -4,7 +4,7 @@ on:
   schedule:
     # Every 30 minutes — stays inside GitHub's 2000 min/month free tier on private repos.
     # Shorter intervals are fine on public repos (Actions are unlimited there).
-    - cron: '10,25,50 * * * *'
+    - cron: '5,35 * * * *'
   workflow_dispatch:   # Lets you trigger a run manually from the Actions tab.
 
 concurrency:
@@ -34,7 +34,7 @@ jobs:
             exit 1
           fi
 
-      - name: Upload to Namecheap via FTPS
+      - name: Upload to webserver via FTPS
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
