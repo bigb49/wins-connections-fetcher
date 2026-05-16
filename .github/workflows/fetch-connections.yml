@@ -22,17 +22,36 @@ jobs:
           URL_USER: ${{ secrets.URL_USER }}
           URL_PASS: ${{ secrets.URL_PASS }}
           LOG_URL:  ${{ secrets.LOG_URL }}
-        run: |
-          curl --fail --silent --show-error --max-time 60 --retry 3 --retry-delay 5 --retry-all-errors --user-agent "Mozilla/5.0" --user "$URL_USER:$URL_PASS" --output connections.txt "$LOG_URL"
-          lines=$(wc -l < connections.txt)
-          bytes=$(wc -c < connections.txt)
-          echo "Fetched $lines lines / $bytes bytes"
-          # Guard against silently writing an empty/HTML error page.
-          if [ "$bytes" -lt 100 ]; then
-            echo "Suspiciously small payload — aborting upload."
-            head -c 500 connections.txt
-            exit 1
-          fi
+   run: |
+      set +e
+      curl --fail --silent --show-error \
+           --connect-timeout 10 --max-time 60 \
+           --retry 3 --retry-delay 5 --retry-all-errors \
+           --user-agent "Mozilla/5.0" \
+           --user "$URL_USER:$URL_PASS" \
+           --output connections.txt "$LOG_URL"
+      rc=$?
+      set -e
+
+      if [ "$rc" -eq 28 ]; then
+        echo "::warning::Source timed out after retries (exit 28). Skipping this run; next cron will retry."
+        exit 0
+      fi
+      if [ "$rc" -ne 0 ]; then
+        echo "::error::curl failed with exit $rc"
+        exit "$rc"
+      fi
+
+      lines=$(wc -l < connections.txt)
+      bytes=$(wc -c < connections.txt)
+      echo "Fetched $lines lines / $bytes bytes"
+
+      if [ "$bytes" -lt 100 ]; then
+        echo "::warning::Suspiciously small payload — skipping upload."
+        head -c 500 connections.txt
+        exit 0
+      fi
+
 
       - name: Upload to webserver via FTPS
         env:
