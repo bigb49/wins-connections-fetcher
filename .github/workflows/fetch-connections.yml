@@ -1,63 +1,63 @@
 name: Fetch WIN System connection log
+  
+  on:
+    schedule:
+      # Every 30 minutes — stays inside GitHub's 2000 min/month free tier on private repos.
+      - cron: '5,35 * * * *'
+    workflow_dispatch:
 
-on:
-  schedule:
-    # Every 30 minutes — stays inside GitHub's 2000 min/month free tier on private repos.
-    # Shorter intervals are fine on public repos (Actions are unlimited there).
-    - cron: '5,35 * * * *'
-  workflow_dispatch:   # Lets you trigger a run manually from the Actions tab.
+  concurrency:
+    group: fetch-connections
+    cancel-in-progress: false
 
-concurrency:
-  group: fetch-connections
-  cancel-in-progress: false
+  jobs:
+    fetch-and-upload:
+      runs-on: ubuntu-latest
+      timeout-minutes: 5
 
-jobs:
-  fetch-and-upload:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+      steps:
+        - name: Fetch + upload connections.txt
+          env:
+            URL_USER: ${{ secrets.URL_USER }}
+            URL_PASS: ${{ secrets.URL_PASS }}
+            LOG_URL:  ${{ secrets.LOG_URL }}
+            FTP_HOST: ${{ secrets.FTP_HOST }}
+            FTP_USER: ${{ secrets.FTP_USER }}
+            FTP_PASS: ${{ secrets.FTP_PASS }}
+            FTP_PATH: logs/connections.txt
+          run: |
+            set +e
+            curl --fail --silent --show-error \
+                 --connect-timeout 10 --max-time 60 \
+                 --retry 3 --retry-delay 5 --retry-all-errors \
+                 --user-agent "Mozilla/5.0" \
+                 --user "$URL_USER:$URL_PASS" \
+                 --output connections.txt "$LOG_URL"
+            rc=$?
+            set -e
+  
+            if [ "$rc" -eq 28 ]; then
+              echo "::warning::Source timed out after retries. Skipping upload; next cron will retry."
+              exit 0
+            fi
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::curl failed with exit $rc"
+              exit 1
+            fi
 
-    steps:
-      - name: Fetch log via HTTPS (Basic auth)
-        env:
-          URL_USER: ${{ secrets.URL_USER }}
-          URL_PASS: ${{ secrets.URL_PASS }}
-          LOG_URL:  ${{ secrets.LOG_URL }}
- run: |
-      set +e
-      curl --fail --silent --show-error \
-           --connect-timeout 10 --max-time 60 \
-           --retry 3 --retry-delay 5 --retry-all-errors \
-           --user-agent "Mozilla/5.0" \
-           --user "$URL_USER:$URL_PASS" \
-           --output connections.txt "$LOG_URL"
-      rc=$?
-      set -e
+            lines=$(wc -l < connections.txt)
+            bytes=$(wc -c < connections.txt)
+            echo "Fetched $lines lines / $bytes bytes"
 
-      if [ "$rc" -eq 28 ]; then
-        echo "::warning::Source timed out after retries (exit 28). Skipping this run; next cron will retry."
-        exit 0
-      fi
-      if [ "$rc" -ne 0 ]; then
-        echo "::error::curl failed with exit $rc"
-        exit "$rc"
-      fi
-
-      lines=$(wc -l < connections.txt)
-      bytes=$(wc -c < connections.txt)
-      echo "Fetched $lines lines / $bytes bytes"
-
-      if [ "$bytes" -lt 100 ]; then
-        echo "::warning::Suspiciously small payload — skipping upload."
-        head -c 500 connections.txt
-        exit 0
-      fi
-
-      - name: Upload to webserver via FTPS
-        env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USER: ${{ secrets.FTP_USER }}
-          FTP_PASS: ${{ secrets.FTP_PASS }}
-          FTP_PATH: logs/connections.txt   # path relative to FTP login home
-        run: |
-          curl --fail --silent --show-error --max-time 60 --ssl-reqd --insecure --user "$FTP_USER:$FTP_PASS" --upload-file connections.txt "ftp://$FTP_HOST/$FTP_PATH"
-          echo "Uploaded to ftp://$FTP_HOST/$FTP_PATH"
+            if [ "$bytes" -lt 100 ]; then
+              echo "::error::Suspiciously small payload — aborting upload."
+              head -c 500 connections.txt
+              exit 1
+            fi
+  
+            curl --fail --silent --show-error \
+                 --max-time 60 --ssl-reqd --insecure \
+                 --user "$FTP_USER:$FTP_PASS" \
+                 --upload-file connections.txt \
+                 "ftp://$FTP_HOST/$FTP_PATH"
+            echo "Uploaded to ftp://$FTP_HOST/$FTP_PATH"
