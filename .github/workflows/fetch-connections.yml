@@ -17,7 +17,7 @@ name: Fetch WIN System connection log
 
       steps:
         - name: Fetch + upload connections.txt
-          env:
+        env:
             URL_USER: ${{ secrets.URL_USER }}
             URL_PASS: ${{ secrets.URL_PASS }}
             LOG_URL:  ${{ secrets.LOG_URL }}
@@ -25,7 +25,7 @@ name: Fetch WIN System connection log
             FTP_USER: ${{ secrets.FTP_USER }}
             FTP_PASS: ${{ secrets.FTP_PASS }}
             FTP_PATH: logs/connections.txt
-          run: |
+        run: |
             set +e
             curl --fail --silent --show-error \
                  --connect-timeout 10 --max-time 60 \
