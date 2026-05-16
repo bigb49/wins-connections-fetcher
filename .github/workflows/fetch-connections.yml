@@ -1,8 +1,7 @@
-name: Fetch WIN System connection log
+  name: Fetch WIN System connection log
   
   on:
     schedule:
-      # Every 30 minutes — stays inside GitHub's 2000 min/month free tier on private repos.
       - cron: '5,35 * * * *'
     workflow_dispatch:
 
@@ -17,7 +16,7 @@ name: Fetch WIN System connection log
 
       steps:
         - name: Fetch + upload connections.txt
-        env:
+          env:
             URL_USER: ${{ secrets.URL_USER }}
             URL_PASS: ${{ secrets.URL_PASS }}
             LOG_URL:  ${{ secrets.LOG_URL }}
@@ -25,7 +24,7 @@ name: Fetch WIN System connection log
             FTP_USER: ${{ secrets.FTP_USER }}
             FTP_PASS: ${{ secrets.FTP_PASS }}
             FTP_PATH: logs/connections.txt
-        run: |
+          run: |
             set +e
             curl --fail --silent --show-error \
                  --connect-timeout 10 --max-time 60 \
@@ -35,7 +34,7 @@ name: Fetch WIN System connection log
                  --output connections.txt "$LOG_URL"
             rc=$?
             set -e
-  
+
             if [ "$rc" -eq 28 ]; then
               echo "::warning::Source timed out after retries. Skipping upload; next cron will retry."
               exit 0
@@ -44,7 +43,7 @@ name: Fetch WIN System connection log
               echo "::error::curl failed with exit $rc"
               exit 1
             fi
-
+  
             lines=$(wc -l < connections.txt)
             bytes=$(wc -c < connections.txt)
             echo "Fetched $lines lines / $bytes bytes"
